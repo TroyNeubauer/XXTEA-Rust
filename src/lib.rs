@@ -1,3 +1,4 @@
+#![no_std]
 mod xxtea;
 
-pub use xxtea::{encrypt, decrypt, encrypt_raw, decrypt_raw};
+pub use xxtea::{encrypt, decrypt};

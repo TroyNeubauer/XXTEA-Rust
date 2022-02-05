@@ -1,55 +1,43 @@
 extern crate rand;
 extern crate xxtea;
 
-use std::str;
 use rand::Rng;
 
-fn rand_string() -> String {
-    let num = rand::thread_rng().gen_range(1, 256);
-    (0..num).map(|_| rand::random::<char>()).collect()
+fn rand_bytes() -> Vec<u8> {
+    let num = rand::thread_rng().gen_range(4, 256) * 4;
+    (0..num).map(|_| rand::random::<u8>()).collect()
 }
 
-pub fn to_hex_string(bytes: &[u8] ) -> String {
-    let strs: Vec<String> = bytes.iter()
-        .map(|b| format!("{:02X}", b))
-        .collect();
+pub fn to_hex_byte_string(bytes: &[u8]) -> Vec<u8> {
+    let mut result = Vec::new();
+    for b in bytes {
+        let upper = (b >> 4) & 0x0F;
+        let lower = b & 0x0F;
+        result.push(upper + b'0');
+        result.push(lower + b'0');
+    }
 
-    strs.join(" ")
+    result
 }
 
 fn run_test_case() {
-    let data = rand_string();
-    let key = rand_string();
+    let plaintext_bytes = to_hex_byte_string(rand_bytes().as_slice());
+    let plaintext_string = core::str::from_utf8(plaintext_bytes.as_slice()).unwrap();
+    let mut data = plaintext_bytes.clone();
+    let key = rand_bytes();
+    let key = &key[..16];
 
-    let result: Vec<u8> = xxtea::encrypt(&data, &key);
+    xxtea::encrypt(&mut data, key);
 
-    let plain_bytes: Vec<u8> = xxtea::decrypt(&result, &key);
-    let plain_text = match str::from_utf8(plain_bytes.as_slice()) {
+    let mut result = data.clone();
+    xxtea::decrypt(&mut result, key);
+
+    let decrypted_plaintext = match core::str::from_utf8(result.as_slice()) {
         Ok(v) => v,
         Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
     };
 
-    assert_eq!(data, plain_text);
-}
-
-#[test]
-fn run_raw_test_case() {
-    let set1_unaligned : [u8; 10] = [17,  18, 19,  20, 0,  0,   0,  0,   52,  238];
-    let set1_encrypted : [u8; 12] = [153, 30, 118, 66, 15, 149, 77, 188, 228, 138, 105, 92];
-    let set1_aligned : [u8; 12]   = [17,  18, 19,  20, 0,  0,   0,  0,   52,  238, 0,   0];
-
-    let key = "Snakeoil";
-
-    let result1: Vec<u8> = xxtea::encrypt_raw(&set1_unaligned.to_vec(), &key);
-    let result2: Vec<u8> = xxtea::encrypt_raw(&set1_aligned.to_vec(), &key);
-
-    assert_eq!(result1, result2);
-    assert_eq!(result1, set1_encrypted.to_vec());
-
-    // Check that encrypted length is same as input length
-
-    let plain_bytes: Vec<u8> = xxtea::decrypt_raw(&result1, &key);
-    assert_eq!(plain_bytes, set1_aligned.to_vec());
+    assert_eq!(plaintext_string, decrypted_plaintext);
 }
 
 #[test]
